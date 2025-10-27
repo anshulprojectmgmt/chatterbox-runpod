@@ -5,8 +5,7 @@ import base64
 import runpod
 import tempfile
 import os
-from src.chatterbox.tts import ChatterboxTTS
-from src.chatterbox.vc import ChatterboxVC
+import time # Import time for timestamping if needed
 
 # --- Global State to hold models ---
 MODELS = {
@@ -22,34 +21,81 @@ def init():
     This runs on "warm-up" and "cold start".
     """
     global MODELS
-    
-    # Set the device, prioritizing cuda
-    if torch.cuda.is_available():
-        MODELS["device"] = "cuda"
-    else:
-        MODELS["device"] = "cpu"
-        
-    print(f"Loading models onto device: {MODELS['device']}")
-    
+    print(f"--- [{time.time():.2f}] init() function started ---")
+
     try:
-        MODELS["tts_model"] = ChatterboxTTS.from_pretrained(device=MODELS["device"])
-        print("ChatterboxTTS model loaded.")
-        MODELS["vc_model"] = ChatterboxVC.from_pretrained(device=MODELS["device"])
-        print("ChatterboxVC model loaded.")
-    except Exception as e:
-        print(f"CRITICAL: Failed to load models: {e}")
+        print(f"--- [{time.time():.2f}] Importing ChatterboxTTS...")
+        from src.chatterbox.tts import ChatterboxTTS
+        print(f"--- [{time.time():.2f}] ChatterboxTTS imported successfully.")
+
+        print(f"--- [{time.time():.2f}] Importing ChatterboxVC...")
+        from src.chatterbox.vc import ChatterboxVC
+        print(f"--- [{time.time():.2f}] ChatterboxVC imported successfully.")
+
+        print(f"--- [{time.time():.2f}] Determining device...")
+        if torch.cuda.is_available():
+            print(f"--- [{time.time():.2f}] CUDA is available.")
+            MODELS["device"] = "cuda"
+        else:
+            print(f"--- [{time.time():.2f}] CUDA not available, falling back to CPU.")
+            MODELS["device"] = "cpu"
+        print(f"--- [{time.time():.2f}] Device set to: {MODELS['device']}")
+
+        # --- Load TTS Model ---
+        print(f"--- [{time.time():.2f}] Attempting to load ChatterboxTTS model onto device: {MODELS['device']}")
+        try:
+            print(f"--- [{time.time():.2f}] Calling ChatterboxTTS.from_pretrained...")
+            MODELS["tts_model"] = ChatterboxTTS.from_pretrained(device=MODELS["device"])
+            print(f"--- [{time.time():.2f}] ✅ ChatterboxTTS model loaded successfully.")
+        except Exception as e_tts:
+            print(f"--- [{time.time():.2f}] ❌ CRITICAL: Failed during ChatterboxTTS.from_pretrained: {e_tts}")
+            MODELS["tts_model"] = None # Ensure it's None on failure
+            print(f"--- [{time.time():.2f}] init() aborted due to TTS model load failure ---")
+            return None # Exit init early
+
+        # --- Load VC Model ---
+        # (Only runs if TTS loaded)
+        print(f"--- [{time.time():.2f}] Attempting to load ChatterboxVC model onto device: {MODELS['device']}")
+        try:
+            print(f"--- [{time.time():.2f}] Calling ChatterboxVC.from_pretrained...")
+            MODELS["vc_model"] = ChatterboxVC.from_pretrained(device=MODELS["device"])
+            print(f"--- [{time.time():.2f}] ✅ ChatterboxVC model loaded successfully.")
+        except Exception as e_vc:
+            print(f"--- [{time.time():.2f}] ❌ CRITICAL: Failed during ChatterboxVC.from_pretrained: {e_vc}")
+            MODELS["vc_model"] = None # Ensure it's None on failure
+            print(f"--- [{time.time():.2f}] init() aborted due to VC model load failure ---")
+            return None # Exit init early
+
+        # Final check
+        if MODELS["tts_model"] is None or MODELS["vc_model"] is None:
+             print(f"--- [{time.time():.2f}] init() finished, but one or more models failed to load. ---")
+             return None # Signal failure
+
+        print(f"--- [{time.time():.2f}] init() finished successfully. Models ready. ---")
+        return True # Explicitly signal success
+
+    except ImportError as e_import:
+        print(f"--- [{time.time():.2f}] ❌ CRITICAL: Failed during import: {e_import}")
+        print(f"--- [{time.time():.2f}] init() aborted due to import error ---")
+        return None
+    except Exception as e_init:
+        print(f"--- [{time.time():.2f}] ❌ CRITICAL: Unhandled exception during init(): {e_init}")
+        print(f"--- [{time.time():.2f}] init() aborted due to unhandled exception ---")
         return None # Signal failure
 
 # --- 2. The handler() function (Runs for EVERY job) ---
+# (Keep your existing handler function here - no changes needed for logging)
 def handler(job):
     """
     Process one inference job.
     """
     job_input = job['input']
     
-    # Check if models are loaded
+    # Check if models were loaded successfully during init
+    # We check explicitly for the success signal (True) if you prefer,
+    # or just check if models are not None.
     if MODELS["tts_model"] is None or MODELS["vc_model"] is None:
-        return {"error": "Models are not loaded. Worker may have failed to initialize."}
+        return {"error": "Models are not loaded. Worker failed during initialization. Check init logs."}
 
     # Determine which task to run
     task_type = job_input.get("task", "tts")
@@ -62,9 +108,10 @@ def handler(job):
         else:
             return {"error": f"Unknown task type: {task_type}"}
     except Exception as e:
-        print(f"Unhandled exception in handler: {e}")
+        print(f"--- [{time.time():.2f}] Unhandled exception in handler: {e}")
         return {"error": str(e)}
 
+# (Keep your handle_tts and handle_vc functions here)
 def handle_tts(job_input):
     """Handles the Text-to-Speech task."""
     model = MODELS["tts_model"]
