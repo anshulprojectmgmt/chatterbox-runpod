@@ -1,5 +1,5 @@
 # Start from an official RunPod image that has PyTorch and CUDA
-FROM runpod/pytorch:1.0.2-cu1290-torch260-ubuntu2204
+FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
 # This image provides torch==2.3.0 and torchaudio==2.3.0
 
 # Set the working directory
