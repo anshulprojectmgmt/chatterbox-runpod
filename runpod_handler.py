@@ -232,8 +232,8 @@ def determine_device():
             MODELS["device"] = "cuda"
             print(f"--- [{time.time():.2f}] CUDA is available. Device set to cuda.")
             # Optional: Check VRAM
-            # total_vram = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-            # print(f"--- [{time.time():.2f}] Total VRAM: {total_vram:.2f} GB")
+            total_vram = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            print(f"--- [{time.time():.2f}] Total VRAM: {total_vram:.2f} GB")
         else:
             MODELS["device"] = "cpu"
             print(f"--- [{time.time():.2f}] CUDA not available. Device set to cpu.")
@@ -289,8 +289,8 @@ def load_model(model_type):
         # If load was successful
         MODELS_LOADED[model_type] = True
         # Optional: Memory cleanup
-        gc.collect() 
-        if device == 'cuda': torch.cuda.empty_cache()
+        # gc.collect() 
+        # if device == 'cuda': torch.cuda.empty_cache()
         return True
 
     except Exception as e:
