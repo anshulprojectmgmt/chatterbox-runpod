@@ -1,16 +1,24 @@
-# Start from an official RunPod image that has PyTorch and CUDA
+# Start from RunPod image with CUDA 12.1 and Python 3.10
 FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
-# This image provides torch==2.3.0 and torchaudio==2.3.0
 
 # Set the working directory
 WORKDIR /app
 
-# Copy the requirements file and install packages
+# Set the Hugging Face cache directory (points inside the volume)
+ENV HF_HOME /runpod-volume/hf_cache
+
+# Copy requirements file first
 COPY requirements.txt .
-RUN pip install -r requirements.txt
 
-# Copy all your project code (the 'src' folder and 'runpod_handler.py')
+# Install system dependencies needed by torchaudio
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
+
+# Install python packages
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy all application code (src folder, handler script, etc.)
 COPY . .
+# Note: We don't need to copy test_input.json for RunPod
 
-# Set the default command to start the handler
+# Command to run the app
 CMD ["python", "runpod_handler.py"]
