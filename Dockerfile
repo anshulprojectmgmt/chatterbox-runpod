@@ -10,6 +10,8 @@ ENV HF_HOME /runpod-volume/hf_cache
 # Copy requirements file first
 COPY requirements.txt .
 
+ENV PYTHONUNBUFFERED=1
+
 # Install system dependencies needed by torchaudio
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
 
